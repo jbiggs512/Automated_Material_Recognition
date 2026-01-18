@@ -42,10 +42,10 @@ class TrainModel:
 
 
     @torch.no_grad()
-    def evaluate_flip_tta(self, ema = False):
+    def evaluate_flip_tta(self, ema = None):
         """Horizontal flip TTA - fast."""
 
-        if ema:
+        if ema is not None:
             self.logger.info("Evaluating with EMA weights.")
             ema.apply_to(self.model)
 
@@ -63,7 +63,7 @@ class TrainModel:
             correct += (preds == labels).sum().item()
             total += labels.size(0)
 
-        if ema:
+        if ema is not None:
             ema.restore(self.model)
         
         return correct / max(1, total)
@@ -183,7 +183,7 @@ class TrainModel:
             )
 
             # Eval using EMA weights (fast flip TTA)
-            acc = self.evaluate_flip_tta(ema=True)
+            acc = self.evaluate_flip_tta(ema=ema)
 
             if acc > best:
                 best = acc
