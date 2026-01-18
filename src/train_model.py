@@ -24,17 +24,8 @@ class TrainModel:
         crop_size = getattr(self.cfg, "crop_size", 224)
         self.fivecrop = transforms.FiveCrop(crop_size)
 
-        # ---- logger ----
+        # Logger
         self.logger = logging.getLogger(self.__class__.__name__)
-        if not self.logger.handlers:
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                "[%(asctime)s] %(levelname)s - %(message)s",
-                datefmt="%H:%M:%S",
-            )
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-            self.logger.setLevel(logging.INFO)
 
         # Ensure models directory exists
         Path("../models").mkdir(parents=True, exist_ok=True)
@@ -46,7 +37,7 @@ class TrainModel:
         """Horizontal flip TTA - fast."""
 
         if ema is not None:
-            self.logger.info("Evaluating with EMA weights.")
+            self.logger.debug("Flip TTA evaluating with EMA weights.")
             ema.apply_to(self.model)
 
         self.model.eval()
@@ -188,7 +179,7 @@ class TrainModel:
             if acc > best:
                 best = acc
                 self.logger.info(
-                    "New best model for stage '%s': acc=%.4f → saving checkpoint",
+                    "New best model for stage '%s': acc=%.4f -> saving checkpoint",
                     stage_name,
                     best,
                 )

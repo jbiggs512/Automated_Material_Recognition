@@ -5,13 +5,13 @@ from dotenv import load_dotenv
 from pathlib import Path
 import logging
 
+import logger
+
 class DataManager:
-    def __init__(self, log_level=logging.INFO):
+    def __init__(self):
 
         # Set up logging
         self.logger = logging.getLogger(self.__class__.__name__)
-        logging.basicConfig(level=log_level,
-                            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
         
         # Load environment variables from .env file
         load_dotenv()
