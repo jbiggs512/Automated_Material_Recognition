@@ -42,8 +42,13 @@ class TrainModel:
 
 
     @torch.no_grad()
-    def evaluate_flip_tta(self):
+    def evaluate_flip_tta(self, ema = False):
         """Horizontal flip TTA - fast."""
+
+        if ema:
+            self.logger.info("Evaluating with EMA weights.")
+            ema.apply_to(self.model)
+
         self.model.eval()
         correct, total = 0, 0
 
@@ -58,6 +63,9 @@ class TrainModel:
             correct += (preds == labels).sum().item()
             total += labels.size(0)
 
+        if ema:
+            ema.restore(self.model)
+        
         return correct / max(1, total)
 
     @torch.no_grad()
@@ -175,9 +183,7 @@ class TrainModel:
             )
 
             # Eval using EMA weights (fast flip TTA)
-            ema.apply_to(self.model)
-            acc = self.evaluate_flip_tta()
-            ema.restore(self.model)
+            acc = self.evaluate_flip_tta(ema=True)
 
             if acc > best:
                 best = acc
@@ -187,6 +193,11 @@ class TrainModel:
                     best,
                 )
                 self.save_model(f"../models/{stage_name}_best_model.pth")
+
+                # Also save EMA weights version
+                ema.apply_to(self.model)
+                self.save_model(f"../models/{stage_name}_with_ema_best_model.pth")
+                ema.restore(self.model)
 
             
             self.logger.info(
