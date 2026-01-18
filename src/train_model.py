@@ -108,12 +108,12 @@ class TrainModel:
         t = step / max(1, total_steps)
         return lr_min + 0.5 * (lr_max - lr_min) * (1.0 + math.cos(math.pi * t))
 
-    def train_epoch(self, train_loader, criterion, optimizer, ema, lr_max, total_steps):
+    def train_epoch(self, criterion, optimizer, ema, lr_max, total_steps):
         """Trains the model for one epoch. Returns (loss_epoch, train_acc)."""
         self.model.train()
         running_loss, correct, total = 0.0, 0, 0
 
-        for imgs, labels in train_loader:
+        for imgs, labels in self.train_loader:
             imgs = imgs.to(self.device, non_blocking=True)
             labels = labels.to(self.device, non_blocking=True)
 
@@ -152,7 +152,7 @@ class TrainModel:
         train_acc = correct / max(1, total)
         return loss_epoch, train_acc
 
-    def train_stage(self, stage_name, train_loader, epochs, lr_max, wd, criterion):
+    def train_stage(self, stage_name, epochs, lr_max, wd, criterion):
         self.set_stage(stage_name)
 
         self.logger.info("Starting stage '%s' (%d epochs)", stage_name, epochs)
@@ -160,12 +160,11 @@ class TrainModel:
         optimizer = self.make_optimizer(lr_max, wd)
         ema = EMA(self.model, decay=self.cfg.ema_decay)  # or None if you want it optional
 
-        total_steps = epochs * len(train_loader)
+        total_steps = epochs * len(self.train_loader)
         best = 0.0
 
         for epoch in range(1, epochs + 1):
             loss_epoch, train_acc = self.train_epoch(
-                train_loader=train_loader,
                 criterion=criterion,
                 optimizer=optimizer,
                 ema=ema,
