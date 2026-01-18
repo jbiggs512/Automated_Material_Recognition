@@ -16,3 +16,6 @@ torch.save({
     "model": model.state_dict(),
     "config": cfg.as_dict(),
 }, "checkpoint.pt")
+
+
+Kimmins - Thoughts on oversampling the challenging images?
