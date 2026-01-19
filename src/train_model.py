@@ -21,7 +21,7 @@ class TrainModel:
         self.amp_enabled = (device.type == "cuda") and use_amp
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.amp_enabled)
 
-        crop_size = getattr(self.cfg, "crop_size", 224)
+        crop_size = 224  # could also get from cfg
         self.fivecrop = transforms.FiveCrop(crop_size)
 
         # Logger
@@ -33,61 +33,68 @@ class TrainModel:
 
 
     @torch.no_grad()
-    def evaluate_flip_tta(self, ema = None):
-        """Horizontal flip TTA - fast."""
-
+    def evaluate_flip_tta(self, ema=None):
         if ema is not None:
-            self.logger.debug("Flip TTA evaluating with EMA weights.")
             ema.apply_to(self.model)
 
         self.model.eval()
-        correct, total = 0, 0
+        correct = total = 0
 
         for imgs, labels in self.test_loader:
             imgs = imgs.to(self.device, non_blocking=True)
             labels = labels.to(self.device, non_blocking=True)
 
-            with torch.cuda.amp.autocast(enabled=self.amp_enabled):
-                logits = (self.model(imgs) + self.model(torch.flip(imgs, dims=[3]))) / 2.0
+            imgs_f = torch.flip(imgs, dims=[-1])
 
-            preds = logits.argmax(1)
+            with torch.amp.autocast(enabled=self.amp_enabled, device_type=self.device.type):
+                logits = (self.model(imgs) + self.model(imgs_f)) * 0.5
+
+            preds = logits.argmax(dim=1)
             correct += (preds == labels).sum().item()
-            total += labels.size(0)
+            total += labels.numel()
 
         if ema is not None:
             ema.restore(self.model)
-        
+
         return correct / max(1, total)
 
     @torch.no_grad()
-    def evaluate_tta10(self):
-        """5-crop + flip = 10-view TTA - slower, usually a bit better."""
+    def evaluate_tta10(self, ema=None):
+        if ema is not None:
+            ema.apply_to(self.model)
+
         self.model.eval()
-        correct, total = 0, 0
+        correct = total = 0
 
         for i, (imgs, labels) in enumerate(self.test_loader):
             if i % 10 == 0:
                 self.logger.info("TTA10 eval batch %d/%d", i, len(self.test_loader))
 
-            # imgs stays on CPU until we build the 10-view batch, then we move once
             labels = labels.to(self.device, non_blocking=True)
+            B = labels.size(0)
 
-            crops = self.fivecrop(imgs)  # tuple length 5, each [B,C,H,W]
+            # IMPORTANT: imgs must be large enough (e.g. after Resize(256)) for fivecrop to be meaningful
+            crops = self.fivecrop(imgs)  # tuple of 5 tensors [B,C,H,W]
+
             views = []
             for c in crops:
                 views.append(c)
-                views.append(torch.flip(c, dims=[3]))
+                views.append(torch.flip(c, dims=[-1]))
 
-            v = torch.cat(views, dim=0).to(self.device, non_blocking=True)  # [10B,C,H,W]
+            v = torch.stack(views, dim=0)          # [10,B,C,H,W]
+            v = v.view(-1, *v.shape[2:]).to(self.device, non_blocking=True)  # [10B,C,H,W]
 
-            with torch.cuda.amp.autocast(enabled=self.amp_enabled):
-                logits = self.model(v)  # [10B,num_classes]
+            with torch.amp.autocast(enabled=self.amp_enabled, device_type=self.device.type):
+                out = self.model(v)               # [10B,num_classes]
 
-            logits = logits.view(10, labels.size(0), -1).mean(dim=0)  # [B,num_classes]
-            preds = logits.argmax(1)
+            out = out.view(10, B, -1).mean(dim=0) # [B,num_classes]
+            preds = out.argmax(dim=1)
 
             correct += (preds == labels).sum().item()
-            total += labels.size(0)
+            total += B
+
+        if ema is not None:
+            ema.restore(self.model)
 
         return correct / max(1, total)
     
