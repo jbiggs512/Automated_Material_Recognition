@@ -19,3 +19,6 @@ torch.save({
 
 
 Kimmins - Thoughts on oversampling the challenging images?
+
+TensorBoard - use for showing model as it trains
+Visualing Augs
