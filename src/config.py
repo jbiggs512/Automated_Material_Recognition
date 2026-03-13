@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Tuple, List, Dict, Any
 
+from torch import device
+
 @dataclass
 class Config:
 
@@ -8,10 +10,17 @@ class Config:
     imagenet_mean: Tuple[float, float, float] = (0.485, 0.456, 0.406)
     imagenet_std:  Tuple[float, float, float] = (0.229, 0.224, 0.225)
 
-    batch_size_train: int = 32
-    batch_size_test: int = 64
+    batch_size_train: int = 16
+    batch_size_test: int = 16
     batch_size_test_tta: int = 16
-    num_workers: int = 4
+    num_workers: int = 0
+    pin_memory = (device.type == "cuda")
+
+    model_dropout: float = 0.3
+
+    # Boosting configuration for confused classes
+    plastic_boost: float = 1.25
+    trash_boost: float = 1.1
 
     epochs_stages: Tuple[int, int, int, int] = (4, 4, 4, 4)
     ema_decay: float = 0.999

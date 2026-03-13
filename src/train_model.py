@@ -26,11 +26,12 @@ class TrainModel:
 
         # Logger
         self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # Training history for plotting data
+        self.history = {"stage": [], "epoch": [], "loss": [], "train_acc": [], "test_acc_flip_tta": []}
 
         # Ensure models directory exists
         Path("../models").mkdir(parents=True, exist_ok=True)
-
-
 
     @torch.no_grad()
     def evaluate_flip_tta(self, ema=None):
@@ -74,20 +75,20 @@ class TrainModel:
             B = labels.size(0)
 
             # IMPORTANT: imgs must be large enough (e.g. after Resize(256)) for fivecrop to be meaningful
-            crops = self.fivecrop(imgs)  # tuple of 5 tensors [B,C,H,W]
+            crops = self.fivecrop(imgs)
 
             views = []
             for c in crops:
                 views.append(c)
                 views.append(torch.flip(c, dims=[-1]))
 
-            v = torch.stack(views, dim=0)          # [10,B,C,H,W]
-            v = v.view(-1, *v.shape[2:]).to(self.device, non_blocking=True)  # [10B,C,H,W]
+            v = torch.stack(views, dim=0)
+            v = v.view(-1, *v.shape[2:]).to(self.device, non_blocking=True)
 
             with torch.amp.autocast(enabled=self.amp_enabled, device_type=self.device.type):
-                out = self.model(v)               # [10B,num_classes]
+                out = self.model(v)
 
-            out = out.view(10, B, -1).mean(dim=0) # [B,num_classes]
+            out = out.view(10, B, -1).mean(dim=0)
             preds = out.argmax(dim=1)
 
             correct += (preds == labels).sum().item()
@@ -124,7 +125,6 @@ class TrainModel:
             imgs = imgs.to(self.device, non_blocking=True)
             labels = labels.to(self.device, non_blocking=True)
 
-            # cosine LR schedule per step
             lr = self.cosine_lr(
                 step=self.global_step,
                 total_steps=total_steps,
@@ -165,7 +165,7 @@ class TrainModel:
         self.logger.info("Starting stage '%s' (%d epochs)", stage_name, epochs)
 
         optimizer = self.make_optimizer(lr_max, wd)
-        ema = EMA(self.model, decay=self.cfg.ema_decay)  # or None if you want it optional
+        ema = EMA(self.model, decay=self.cfg.ema_decay)
 
         total_steps = epochs * len(self.train_loader)
         best = 0.0
@@ -207,6 +207,13 @@ class TrainModel:
                 acc,
                 best,
             )
+
+            # Save training history for plotting
+            self.history["stage"].append(stage_name)
+            self.history["epoch"].append(epoch)
+            self.history["loss"].append(loss_epoch)
+            self.history["train_acc"].append(train_acc)
+            self.history["test_acc_flip_tta"].append(acc)
 
         return best
 

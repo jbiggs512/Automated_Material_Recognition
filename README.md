@@ -1,24 +1,16 @@
 # Automated_Material_Recognition
 
-Need to check requirements install tbh
-Note: Where you should put the data by default
+## Setup Guide
 
+* A .env file should be configured in the project root directory i.e. within Automated_Material_Recongition that includes the following defined paths
+    * PROJECT_DIR -> An absolute path to the project root directory e.g. C:/Users/jackb/source/repos/Automated_Material_Recognition
+    * DATA_DIR -> A relative path from the project root directory to a directory containing the images (zip file) e.g. ./data
+    * LOG_DIR -> A relative path from the project root directory to a whereever you'd like the output from the logger to be stored e.g. ./logs
 
-# TODO
+* You must place the zip file containing the train and test images inside your DATA_DIR
 
-Review perhaps excessive logging - Dataloader
+* Requirements can be found in a requirements.txt file within the project root directory, all versions of dependancies are compatible with pip version 25.0.1
 
-Could add ensemble - only once the codebase is clean
+* Trained models and checkpoints will be saved to ./models, you'll find an archived model under the archive directory.
 
-Setup logger in main, and pass this into components
-
-torch.save({
-    "model": model.state_dict(),
-    "config": cfg.as_dict(),
-}, "checkpoint.pt")
-
-
-Kimmins - Thoughts on oversampling the challenging images?
-
-TensorBoard - use for showing model as it trains
-Visualing Augs
+* Exploratory work with Ollama can be found at the bottom of main.ipynb, this was later de-prioritised, justification can be found in the file.
